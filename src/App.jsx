@@ -235,7 +235,7 @@ export default function App() {
                             Игрок {idx === 0 ? "A" : "B"}
                         </h2>
                         <SpriteAnimator
-                            src={"/Char_3_No_Armor.png"}
+                            src={`${import.meta.env.BASE_URL}Char_3_No_Armor.png`}
                             row={sprite.row}
                             startFrame={sprite.start}
                             frames={sprite.frames}
