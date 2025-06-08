@@ -92,6 +92,7 @@ export default function App() {
         newLog.push(`Игрок A выбрал ${actionLabel(playerA.action)}, Игрок B выбрал ${actionLabel(playerB.action)}`);
         newLog.push(resultA.log);
         newLog.push(resultB.log);
+        newLog.push("-----");
 
         setLog([...newLog, ...log]);
     }
