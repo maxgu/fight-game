@@ -251,6 +251,10 @@ export default function App() {
         );
     }
 
+    useEffect(() => {
+        document.title = "Fight Game";
+    }, []);
+
     const [rulesOpen, setRulesOpen] = useState(false);
 
     return (
