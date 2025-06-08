@@ -73,8 +73,8 @@ export default function App() {
         const newLog = [];
 
         // Сначала вычисляем результаты атак
-        const resultA = executeAction(playerA, playerB);
-        const resultB = executeAction(playerB, playerA);
+        const resultA = executeAction(playerA, playerB, "Игрок A");
+        const resultB = executeAction(playerB, playerA, "Игрок B");
 
         // HP уменьшается от урона противника
         const nextPlayerA = {
@@ -96,33 +96,116 @@ export default function App() {
         setLog([...newLog, ...log]);
     }
 
-    function executeAction(self, enemy) {
+    function executeAction(self, enemy, selfName = "") {
         let log = "";
         let damage = 0;
+        let initiativeChange = 0;
+        let dealtDamage = 0;
+        let energyChange = 0;
+
         const selfAction = self.action;
         const enemyAction = enemy.action;
 
+        const canParry = selfAction === "parry" && self.initiative >= 3;
+
+        // 1. УДАР
         if (selfAction && selfAction.startsWith("hit_")) {
+            initiativeChange = -1;
+            energyChange = -1;
+
+            // Противник блокирует этот удар или парирует?
+            const enemyBlocks = enemyAction === "block_" + selfAction.slice(4);
+            const enemyParries = enemyAction === "parry" && enemy.initiative >= 3;
+
             damage = 10 + Math.min(self.energy, 5);
-            if (enemyAction === "block_" + selfAction.slice(4)) {
+            if (self.energy >= 7) {
+                damage += 2;
+            }
+            if (self.energy <= 3) {
+                damage -= 2;
+            }
+
+            if (enemyBlocks) {
                 damage -= 7;
-                log = `Атака в ${actionLabel(selfAction)} блокирована. Урон: ${Math.max(0, damage)}`;
-            } else if (enemyAction === "parry") {
+                energyChange = -1; // Тратится энергия
+                log = `${selfName}: Атака в ${actionLabel(selfAction)} блокирована. Урон: ${Math.max(0, damage)}`;
+            } else if (enemyParries) {
                 damage = 0;
-                log = `Парирование! Атака в ${actionLabel(selfAction)} отражена.`;
+                energyChange = -1; // Тратится энергия
+                log = `${selfName}: Парирование! Атака в ${actionLabel(selfAction)} отражена, получил 1 урон.`;
             } else {
-                log = `Успешная атака в ${actionLabel(selfAction)}. Урон: ${damage}`;
+                energyChange = 0; // Успешная атака — энергия не тратится
+                log = `${selfName}: Успешная атака в ${actionLabel(selfAction)}. Урон: ${damage}`;
             }
         }
-        // Остальные действия (блок, парирование) — логика без урона
-        const newEnergy = Math.min(10, self.energy + 1);
-        const newInitiative = Math.min(5, self.initiative + 1);
+
+        // 2. БЛОК
+        else if (selfAction && selfAction.startsWith("block_")) {
+            initiativeChange = +1;
+            // Был ли удар именно в этот сектор?
+            const attacked = enemy.action && enemy.action === "hit_" + selfAction.slice(6);
+            if (attacked) {
+                energyChange = +2;
+                log = `${selfName}: Успешно защитился (${actionLabel(selfAction)}). +2 энергии`;
+            } else {
+                energyChange = +1;
+                log = `${selfName}: Защита (${actionLabel(selfAction)}). +1 энергия`;
+            }
+        }
+
+        // 3. ПАРИРОВАНИЕ
+        else if (selfAction === "parry") {
+            initiativeChange = -3;
+            energyChange = -1;
+            if (canParry && enemy.action && enemy.action.startsWith("hit_")) {
+                log = `${selfName}: Парирование! Контратака — противник получает 1 урон.`;
+                dealtDamage = 1;
+            } else if (!canParry) {
+                log = `${selfName}: Недостаточно инициативы для парирования!`;
+            } else {
+                log = `${selfName}: Парирование — но атаки не было.`;
+            }
+        }
+
+        // 4. ПРОПУСК ХОДА/ОЖИДАНИЕ
+        else {
+            log = "Ожидание...";
+        }
+
+        // Итоговые значения
+        const newInitiative = Math.max(0, Math.min(5, self.initiative + initiativeChange));
+        const newEnergy = Math.max(0, Math.min(10, self.energy + energyChange));
+
+        if (selfAction && selfAction.startsWith("hit_")) {
+            dealtDamage = Math.max(0, damage);
+        }
 
         return {
             self: { ...self, energy: newEnergy, initiative: newInitiative },
             log,
-            dealtDamage: Math.max(0, damage), // <-- возвращаем урон
+            dealtDamage,
         };
+    }
+
+    function StatBar({ value, max, thresholdLow = 3, thresholdHigh = 7, greenCount = 0 }) {
+        // greenCount используется для инициативы
+        return (
+            <span style={{ letterSpacing: 1 }}>
+              {[...Array(max)].map((_, i) => {
+                  let color = "#bbb"; // по умолчанию — серый
+                  if (i < value) {
+                      // Для инициативы с зелёными, остальное чёрное
+                      if (greenCount > 0 && i < greenCount) color = "#3d7c3d";
+                      else if (value <= thresholdLow) color = "#f55"; // розовый если мало
+                      else if (value >= thresholdHigh) color = "#059c42"; // зелёный если много
+                      else color = "#111"; // чёрный (норма)
+                  }
+                  return (
+                      <span key={i} style={{ color, fontSize: 20, fontWeight: 900 }}>|</span>
+                  );
+              })}
+            </span>
+        );
     }
 
     function actionLabel(value) {
@@ -160,8 +243,12 @@ export default function App() {
                             flipX={idx === 1}
                         />
                         <div style={{ width: '100%', color: "#000" }}>HP: <Progress value={player.hp} /></div>
-                        <div style={{ width: '100%', color: "#000" }}>Энергия: {player.energy}</div>
-                        <div style={{ width: '100%', color: "#000" }}>Инициатива: {player.initiative}</div>
+                        <div style={{ width: '100%', color: "#000" }}>
+                            Энергия: <StatBar value={player.energy} max={10} />
+                        </div>
+                        <div style={{ width: '100%', color: "#000" }}>
+                            Инициатива: <StatBar value={player.initiative} max={5} greenCount={player.initiative} />
+                        </div>
                         <select
                             value={player.action}
                             onChange={e => {
