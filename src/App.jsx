@@ -237,9 +237,14 @@ export default function App() {
                     borderRadius: 14,
                     maxWidth: 480,
                     minWidth: 320,
+                    width: "90vw",
+                    maxHeight: "90vh",
                     padding: 32,
                     boxShadow: "0 4px 24px #0002",
-                    position: "relative"
+                    position: "relative",
+                    overflowY: "auto",
+                    WebkitOverflowScrolling: "touch",
+                    overscrollBehavior: "contain"
                 }}>
                     <button onClick={onClose} style={{
                         position: "absolute", top: 10, right: 10, border: "none",
@@ -259,7 +264,7 @@ export default function App() {
 
     return (
         <div>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
                 <button onClick={() => setRulesOpen(true)}
                         style={{
                             background: "#059c42",
